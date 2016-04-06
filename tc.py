@@ -94,7 +94,7 @@ def tc_mvn_args(original):
     """
     Add some useful maven arguments in TC
     """
-    return "-Dmaven.test.failure.ignore=true --show-version " + original
+    return "-DfailIfNoTests=false -Dmaven.test.failure.ignore=true --show-version " + original
 
 
 def start_linux(user, password, url, branch, remote, mvngoals, mvnargs, jdk):
