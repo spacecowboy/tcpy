@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+Script for triggering personal builds on TeamCity.  Specify `-h` with a
+specific sub command for more specific help.
+"""
 
 from __future__ import print_function
 import requests as r
 from argparse import ArgumentParser
+import sys
 
 try:
     import urlparse
@@ -107,18 +112,19 @@ def main(cliargs):
     """
     Parse the command line arguments and provide help for the user.
     """
-    mainparser = ArgumentParser()
+    mainparser = ArgumentParser(epilog=__doc__)
     # Use a subcommand for each build configuration
     subparsers = mainparser.add_subparsers(title='build types', dest='subcmd')
 
     # All builds share teamcity information
     _parserbase = ArgumentParser(add_help=False)
-    _parserbase.add_argument('-u', '--user', metavar='USERNAME',
-                             help='TeamCity username', required=True)
-    _parserbase.add_argument('-p', '--password',
-                             help='TeamCity password', required=True)
-    _parserbase.add_argument('-b', '--branch',
-                             help='Branch to checkout', required=True)
+    _required = _parserbase.add_argument_group('mandatory arguments')
+    _required.add_argument('-u', '--user', metavar='USERNAME',
+                           help='TeamCity username', required=True)
+    _required.add_argument('-p', '--password',
+                           help='TeamCity password', required=True)
+    _required.add_argument('-b', '--branch',
+                           help='Branch on remote to checkout', required=True)
     _parserbase.add_argument('-r', '--remote', metavar='URL',
                              help='Public remote repo where branch exists',
                              default='origin')
@@ -158,5 +164,4 @@ def main(cliargs):
 
 
 if __name__ == "__main__":
-    import sys
     main(sys.argv[1:])
