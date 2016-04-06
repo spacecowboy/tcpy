@@ -73,7 +73,6 @@ def send_request(user, password, url, data):
     """
     Start a build, defined in data
     """
-    print(data)
     resp = r.post(urlparse.urljoin(url, "httpAuth/app/rest/buildQueue"),
                   auth=(user, password),
                   headers=_headers,
