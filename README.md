@@ -7,6 +7,10 @@ to see what sub commands you can call. For more specfic help, just do
 
     tc.py {subcommand} -h
 
+To install easily, you can do this:
+
+    pip install git+https://github.com/spacecowboy/tcpy.git
+
 ## Some examples
 
 These might become outdated, but should serve as inspiration.
