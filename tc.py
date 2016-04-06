@@ -24,7 +24,7 @@ _headers = {'Accept': 'application/json',
             'Content-Type': 'application/xml'}
 
 _requestbase = """
-<build personal="true" branchName="{branch}">
+<build personal="{personal}" branchName="{branch}">
   <buildType id="{buildid}"/>
   <comment><text>Triggered from CLI</text></comment>
   <properties>
@@ -58,20 +58,22 @@ def dict_as_properties(props):
     return xml
 
 
-def request_xml(buildid, branch, remote, props):
+def request_xml(buildid, personal, branch, remote, props):
     """
     Format an XML build request
     """
     return _requestbase.format(buildid=buildid,
                                remote=remote,
                                branch=branch,
-                               props=props)
+                               props=props,
+                               personal=str(personal).lower())
 
 
 def send_request(user, password, url, data):
     """
     Start a build, defined in data
     """
+    print(data)
     resp = r.post(urlparse.urljoin(url, "httpAuth/app/rest/buildQueue"),
                   auth=(user, password),
                   headers=_headers,
@@ -97,14 +99,14 @@ def tc_mvn_args(original):
     return "-DfailIfNoTests=false -Dmaven.test.failure.ignore=true --show-version " + original
 
 
-def start_linux(user, password, url, branch, remote, mvngoals, mvnargs, jdk):
+def start_linux(user, password, url, personal, branch, remote, mvngoals, mvnargs, jdk):
     """
     Start a custom linux build
     """
     props = dict_as_properties({'project-default-jdk': "%{}%".format(jdk),
                                 'maven-goals': mvngoals,
                                 'maven-args': mvnargs})
-    data = request_xml(_neo4jlinux_id, branch, remote, props)
+    data = request_xml(_neo4jlinux_id, personal, branch, remote, props)
     send_request(user, password, url, data)
 
 
@@ -131,6 +133,14 @@ def main(cliargs):
     _parserbase.add_argument('--teamcity', metavar='URL',
                              help='Url to TeamCity',
                              default='https://build.neohq.net')
+    _personal_parser = _parserbase.add_mutually_exclusive_group(required=False)
+    _personal_parser.add_argument('--personal', dest='personal',
+                                  action='store_true',
+                                  help='Start as personal build')
+    _personal_parser.add_argument('--no-personal', dest='personal',
+                                  action='store_false',
+                                  help='Do not start as personal build')
+    _parserbase.set_defaults(personal=True)
 
     # All Neo4j builds share some obvious arguments
     _neo4jparserbase = ArgumentParser(add_help=False)
@@ -156,7 +166,7 @@ def main(cliargs):
         mainparser.print_help()
         exit()
     elif args.subcmd == "linux":
-        start_linux(args.user, args.password, args.teamcity,
+        start_linux(args.user, args.password, args.teamcity, args.personal,
                     args.branch, args.remote,
                     args.maven_goals,
                     tc_mvn_args(args.maven_args),
