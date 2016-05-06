@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# PYTHON_ARGCOMPLETE_OK
 """
-Script for triggering personal builds on TeamCity.  Specify `-h` with a
-specific sub command for more specific help.
+tc.py <command> [<args>]
+
+Where command is the type of build you with to invoke:
+    linux        Neo4j Linux
+    har          HA Robustness
 """
 
 from __future__ import print_function
@@ -37,6 +41,7 @@ _requestbase = """
 _requestpropertybase = '\n    <property name="{name}" value="{value}"/>'
 
 _neo4jlinux_id = "JonasHaRequests_Neo4jCustom"
+_har_id = "JonasHaRequests_HarBranchArtifacts"
 
 _linux_jdks = ['openjdk-8', 'openjdk-7',
                'oracle-jdk-8', 'oracle-jdk-7',
@@ -44,6 +49,44 @@ _linux_jdks = ['openjdk-8', 'openjdk-7',
 
 # End constants #
 
+
+# Top level parsers
+
+# All builds share teamcity information
+_parser = ArgumentParser(add_help=False)
+_required = _parser.add_argument_group('mandatory arguments')
+_required.add_argument('-u', '--user', metavar='USERNAME',
+                       help='TeamCity username', required=True)
+_required.add_argument('-p', '--password',
+                       help='TeamCity password', required=True)
+_parser.add_argument('-r', '--remote', metavar='URL',
+                         help='Public remote repo where branch exists',
+                         default='origin')
+_parser.add_argument('--teamcity', metavar='URL',
+                         help='Url to TeamCity',
+                         default='https://build.neohq.net')
+_personal_parser = _parser.add_mutually_exclusive_group(required=False)
+_personal_parser.add_argument('--personal', dest='personal',
+                              action='store_true',
+                              help='Start as personal build')
+_personal_parser.add_argument('--no-personal', dest='personal',
+                              action='store_false',
+                              help='Do not start as personal build')
+_parser.set_defaults(personal=False)
+
+# All Neo4j builds share some obvious arguments
+_neo4jparserbase = ArgumentParser(add_help=False)
+_neo4jparserbase.add_argument('--maven-goals', metavar='GOALS',
+                              help='Maven goal(s) to invoke',
+                              default='clean verify')
+_neo4jparserbase.add_argument('--maven-args', metavar='ARGS',
+                              help='Additional Maven arguments',
+                              default='-DrunITs -DskipBrowser')
+_neo4jrequired = _neo4jparserbase.add_argument_group('mandatory arguments')
+_neo4jrequired.add_argument('-b', '--branch',
+                            help='Branch of Neo4j to checkout. Supports special "pr/1234" syntax', required=True)
+
+# End top level parsers
 
 def dict_as_properties(props):
     """
@@ -58,10 +101,13 @@ def dict_as_properties(props):
     return xml
 
 
-def request_xml(buildid, personal, branch, remote, props):
+def request_xml(buildid, personal, branch, remote, props=None):
     """
     Format an XML build request
     """
+    if props is None:
+        props=""
+
     return _requestbase.format(buildid=buildid,
                                remote=remote,
                                branch=branch,
@@ -108,69 +154,61 @@ def start_linux(user, password, url, personal, branch, remote, mvngoals, mvnargs
     data = request_xml(_neo4jlinux_id, personal, branch, remote, props)
     send_request(user, password, url, data)
 
-
-def main(cliargs):
+def start_ha(user, password, url, personal, branch, remote):
     """
-    Parse the command line arguments and provide help for the user.
+    Start a custom ha robustness build
     """
-    mainparser = ArgumentParser(epilog=__doc__)
-    # Use a subcommand for each build configuration
-    subparsers = mainparser.add_subparsers(title='build types', dest='subcmd')
+    data = request_xml(_har_id, personal, branch, remote)
+    send_request(user, password, url, data)
 
-    # All builds share teamcity information
-    _parserbase = ArgumentParser(add_help=False)
-    _required = _parserbase.add_argument_group('mandatory arguments')
-    _required.add_argument('-u', '--user', metavar='USERNAME',
-                           help='TeamCity username', required=True)
-    _required.add_argument('-p', '--password',
-                           help='TeamCity password', required=True)
-    _required.add_argument('-b', '--branch',
-                           help='Branch on remote to checkout', required=True)
-    _parserbase.add_argument('-r', '--remote', metavar='URL',
-                             help='Public remote repo where branch exists',
-                             default='origin')
-    _parserbase.add_argument('--teamcity', metavar='URL',
-                             help='Url to TeamCity',
-                             default='https://build.neohq.net')
-    _personal_parser = _parserbase.add_mutually_exclusive_group(required=False)
-    _personal_parser.add_argument('--personal', dest='personal',
-                                  action='store_true',
-                                  help='Start as personal build')
-    _personal_parser.add_argument('--no-personal', dest='personal',
-                                  action='store_false',
-                                  help='Do not start as personal build')
-    _parserbase.set_defaults(personal=True)
 
-    # All Neo4j builds share some obvious arguments
-    _neo4jparserbase = ArgumentParser(add_help=False)
-    _neo4jparserbase.add_argument('--maven-goals', metavar='GOALS',
-                                  help='Maven goal(s) to invoke',
-                                  default='clean verify')
-    _neo4jparserbase.add_argument('--maven-args', metavar='ARGS',
-                                  help='Additional Maven arguments',
-                                  default='-DrunITs -DskipBrowser')
+class TC(object):
 
-    # Linux
-    linuxparser = subparsers.add_parser('linux', help='Neo4j Linux',
-                                        parents=[_parserbase,
-                                                 _neo4jparserbase])
-    linuxparser.add_argument('--jdk', help='JDK to build with',
-                             default=_linux_jdks[0], choices=_linux_jdks)
+    def __init__(self, cliargs):
+        parser = ArgumentParser(
+            description='Script for triggering builds on TeamCity',
+            usage=__doc__)
 
-    # Parse the arguments given
-    args = mainparser.parse_args(cliargs)
+        parser.add_argument('command', help='Type of build to invoke')
 
-    # Select action based on sub command
-    if args.subcmd is None:
-        mainparser.print_help()
-        exit()
-    elif args.subcmd == "linux":
+        # Only care about the first argument
+        args = parser.parse_args(cliargs[:1])
+
+        # If no method with that name exists on this object
+        if not hasattr(self, args.command):
+            print('Unrecognized command:', args.command)
+            parser.print_help()
+            exit(1)
+
+        # Invoke the sub command method with rest of the args
+        getattr(self, args.command)(cliargs[1:])
+
+    def linux(self, subargs):
+        parser = ArgumentParser(description="Neo4j Linux",
+                                parents=[_parser, _neo4jparserbase])
+        parser.add_argument('--jdk', help='JDK to build with',
+                            default=_linux_jdks[0], choices=_linux_jdks)
+
+        args = parser.parse_args(subargs)
+
         start_linux(args.user, args.password, args.teamcity, args.personal,
                     args.branch, args.remote,
                     args.maven_goals,
                     tc_mvn_args(args.maven_args),
                     args.jdk)
 
+    def har(self, subargs):
+        # Add to top group to keep a single group
+        _required.add_argument('-b', '--branch', required=True,
+                               help='Branch of Neo4j to checkout. Supports special "pr/1234" syntax')
+        parser = ArgumentParser(description="HA Robustness",
+                                parents=[_parser])
+
+        args = parser.parse_args(subargs)
+
+        start_ha(args.user, args.password, args.teamcity, args.personal,
+                 args.branch, args.remote)
+
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    TC(sys.argv[1:])

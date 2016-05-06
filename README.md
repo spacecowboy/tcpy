@@ -21,6 +21,10 @@ These might become outdated, but should serve as inspiration.
 
     tc.py -u XXX -p YYY --branch 3.1
 
+### Run HA Robustness on a pull request
+
+    tc.py -u XXX -p YYY --branch pr/1234
+
 ### Run linux on an IBM JDK
 
     tc.py -u XXX -p YYY --branch 3.1 --jdk ibmjdk-8
