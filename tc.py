@@ -8,26 +8,25 @@ Where command is the type of build you with to invoke:
     linux        Neo4j Linux
     har          HA Robustness
 """
-
+# StdLib imports first
 from __future__ import print_function
-import requests as r
 from argparse import ArgumentParser
 import sys
-
 try:
     import urlparse
 except ImportError:
     # Renamed in Python3
     from urllib import parse as urlparse
-
+# Library imports
+import requests as r
 
 # Some constants #
 
 # Want to request json from the server
-_headers = {'Accept': 'application/json',
+_HEADERS = {'Accept': 'application/json',
             'Content-Type': 'application/xml'}
 
-_requestbase = """
+_REQUESTBASE = """
 <build personal="{personal}" branchName="{branch}">
   <buildType id="{buildid}"/>
   <comment><text>Triggered from CLI</text></comment>
@@ -38,12 +37,12 @@ _requestbase = """
 </build>
 """
 
-_requestpropertybase = '\n    <property name="{name}" value="{value}"/>'
+_REQUESTPROPERTYBASE = '\n    <property name="{name}" value="{value}"/>'
 
-_neo4jlinux_id = "JonasHaRequests_Neo4jCustom"
-_har_id = "JonasHaRequests_HarBranchArtifacts"
+_NEO4JLINUX_ID = "JonasHaRequests_Neo4jCustom"
+_HAR_ID = "JonasHaRequests_HarBranchArtifacts"
 
-_linux_jdks = ['openjdk-8', 'openjdk-7',
+_LINUX_JDKS = ['openjdk-8', 'openjdk-7',
                'oracle-jdk-8', 'oracle-jdk-7',
                'ibmjdk-8', 'ibmjdk-7']
 
@@ -53,38 +52,40 @@ _linux_jdks = ['openjdk-8', 'openjdk-7',
 # Top level parsers
 
 # All builds share teamcity information
-_parser = ArgumentParser(add_help=False)
-_required = _parser.add_argument_group('mandatory arguments')
-_required.add_argument('-u', '--user', metavar='USERNAME',
+_PARSER = ArgumentParser(add_help=False)
+_REQUIRED = _PARSER.add_argument_group('mandatory arguments')
+_REQUIRED.add_argument('-u', '--user', metavar='USERNAME',
                        help='TeamCity username', required=True)
-_required.add_argument('-p', '--password',
+_REQUIRED.add_argument('-p', '--password',
                        help='TeamCity password', required=True)
-_parser.add_argument('-r', '--remote', metavar='URL',
-                         help='Public remote repo where branch exists',
-                         default='origin')
-_parser.add_argument('--teamcity', metavar='URL',
-                         help='Url to TeamCity',
-                         default='https://build.neohq.net')
-_personal_parser = _parser.add_mutually_exclusive_group(required=False)
-_personal_parser.add_argument('--personal', dest='personal',
+_PARSER.add_argument('-r', '--remote', metavar='URL',
+                     help='Public remote repo where branch exists',
+                     default='origin')
+_PARSER.add_argument('--teamcity', metavar='URL',
+                     help='Url to TeamCity',
+                     default='https://build.neohq.net')
+_PERSONAL_PARSER = _PARSER.add_mutually_exclusive_group(required=False)
+_PERSONAL_PARSER.add_argument('--personal', dest='personal',
                               action='store_true',
                               help='Start as personal build')
-_personal_parser.add_argument('--no-personal', dest='personal',
+_PERSONAL_PARSER.add_argument('--no-personal', dest='personal',
                               action='store_false',
                               help='Do not start as personal build')
-_parser.set_defaults(personal=False)
+_PARSER.set_defaults(personal=False)
 
 # All Neo4j builds share some obvious arguments
-_neo4jparserbase = ArgumentParser(add_help=False)
-_neo4jparserbase.add_argument('--maven-goals', metavar='GOALS',
+_NEO4JPARSERBASE = ArgumentParser(add_help=False)
+_NEO4JPARSERBASE.add_argument('--maven-goals', metavar='GOALS',
                               help='Maven goal(s) to invoke',
                               default='clean verify')
-_neo4jparserbase.add_argument('--maven-args', metavar='ARGS',
+_NEO4JPARSERBASE.add_argument('--maven-args', metavar='ARGS',
                               help='Additional Maven arguments',
                               default='-DrunITs -DskipBrowser')
-_neo4jrequired = _neo4jparserbase.add_argument_group('mandatory arguments')
-_neo4jrequired.add_argument('-b', '--branch',
-                            help='Branch of Neo4j to checkout. Supports special "pr/1234" syntax', required=True)
+_NEO4JREQUIRED = _NEO4JPARSERBASE.add_argument_group('mandatory arguments')
+_NEO4JREQUIRED.add_argument('-b', '--branch',
+                            help=('Branch of Neo4j to checkout.' +
+                                  'Supports special "pr/1234" syntax'),
+                            required=True)
 
 # End top level parsers
 
@@ -97,7 +98,7 @@ def dict_as_properties(props):
     """
     xml = ""
     for k, v in props.items():
-        xml += _requestpropertybase.format(name=k, value=v)
+        xml += _REQUESTPROPERTYBASE.format(name=k, value=v)
     return xml
 
 
@@ -106,9 +107,9 @@ def request_xml(buildid, personal, branch, remote, props=None):
     Format an XML build request
     """
     if props is None:
-        props=""
+        props = ""
 
-    return _requestbase.format(buildid=buildid,
+    return _REQUESTBASE.format(buildid=buildid,
                                remote=remote,
                                branch=branch,
                                props=props,
@@ -121,7 +122,7 @@ def send_request(user, password, url, data):
     """
     resp = r.post(urlparse.urljoin(url, "httpAuth/app/rest/buildQueue"),
                   auth=(user, password),
-                  headers=_headers,
+                  headers=_HEADERS,
                   data=data)
 
     if resp.ok:
@@ -144,21 +145,22 @@ def tc_mvn_args(original):
     return "-DfailIfNoTests=false -Dmaven.test.failure.ignore=true --show-version " + original
 
 
-def start_linux(user, password, url, personal, branch, remote, mvngoals, mvnargs, jdk):
+def start_linux(user, password, url, personal, branch, remote,
+                mvngoals, mvnargs, jdk):
     """
     Start a custom linux build
     """
     props = dict_as_properties({'project-default-jdk': "%{}%".format(jdk),
                                 'maven-goals': mvngoals,
                                 'maven-args': mvnargs})
-    data = request_xml(_neo4jlinux_id, personal, branch, remote, props)
+    data = request_xml(_NEO4JLINUX_ID, personal, branch, remote, props)
     send_request(user, password, url, data)
 
 def start_ha(user, password, url, personal, branch, remote):
     """
     Start a custom ha robustness build
     """
-    data = request_xml(_har_id, personal, branch, remote)
+    data = request_xml(_HAR_ID, personal, branch, remote)
     send_request(user, password, url, data)
 
 
@@ -185,9 +187,9 @@ class TC(object):
 
     def linux(self, subargs):
         parser = ArgumentParser(description="Neo4j Linux",
-                                parents=[_parser, _neo4jparserbase])
+                                parents=[_PARSER, _NEO4JPARSERBASE])
         parser.add_argument('--jdk', help='JDK to build with',
-                            default=_linux_jdks[0], choices=_linux_jdks)
+                            default=_LINUX_JDKS[0], choices=_LINUX_JDKS)
 
         args = parser.parse_args(subargs)
 
@@ -199,10 +201,10 @@ class TC(object):
 
     def har(self, subargs):
         # Add to top group to keep a single group
-        _required.add_argument('-b', '--branch', required=True,
+        _REQUIRED.add_argument('-b', '--branch', required=True,
                                help='Branch of Neo4j to checkout. Supports special "pr/1234" syntax')
         parser = ArgumentParser(description="HA Robustness",
-                                parents=[_parser])
+                                parents=[_PARSER])
 
         args = parser.parse_args(subargs)
 
