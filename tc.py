@@ -156,11 +156,12 @@ def start_linux(user, password, url, personal, branch, remote,
     data = request_xml(_NEO4JLINUX_ID, personal, branch, remote, props)
     send_request(user, password, url, data)
 
-def start_ha(user, password, url, personal, branch, remote):
+def start_ha(user, password, url, personal, branch, remote, arguments):
     """
     Start a custom ha robustness build
     """
-    data = request_xml(_HAR_ID, personal, branch, remote)
+    props = dict_as_properties({'run-args': arguments})
+    data = request_xml(_HAR_ID, personal, branch, remote, props)
     send_request(user, password, url, data)
 
 
@@ -205,11 +206,14 @@ class TC(object):
                                help='Branch of Neo4j to checkout. Supports special "pr/1234" syntax')
         parser = ArgumentParser(description="HA Robustness",
                                 parents=[_PARSER])
+        parser.add_argument('--arguments',
+                              help='Arguments to give to HA-robustness run script. Note that due to a bug, you MUST start this string with a SPACE',
+                              default='-ha-cluster-size=3 -threads=10 -jvm-mode=separate -time=7200 -history -myknocks -lock_manager=forseti')
 
         args = parser.parse_args(subargs)
 
         start_ha(args.user, args.password, args.teamcity, args.personal,
-                 args.branch, args.remote)
+                 args.branch, args.remote, args.arguments)
 
 
 if __name__ == "__main__":
