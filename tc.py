@@ -6,6 +6,7 @@ tc.py <command> [<args>]
 
 Where command is the type of build you with to invoke:
     linux        Neo4j Linux
+    windows      Neo4j Windows
     har          HA Robustness
 """
 # StdLib imports first
@@ -41,6 +42,7 @@ _REQUESTPROPERTYBASE = '\n    <property name="{name}" value="{value}"/>'
 
 _NEO4JLINUX_ID = "JonasHaRequests_Neo4jCustom"
 _HAR_ID = "JonasHaRequests_HarBranchArtifacts"
+_WIN_ID = "JonasHaRequests_Neo4jCustomWindows"
 
 _LINUX_JDKS = ['openjdk-8', 'openjdk-7',
                'oracle-jdk-8', 'oracle-jdk-7',
@@ -84,7 +86,7 @@ _NEO4JPARSERBASE.add_argument('--maven-args', metavar='ARGS',
 _NEO4JREQUIRED = _NEO4JPARSERBASE.add_argument_group('mandatory arguments')
 _NEO4JREQUIRED.add_argument('-b', '--branch',
                             help=('Branch of Neo4j to checkout.' +
-                                  'Supports special "pr/1234" syntax'),
+                                  ' For a pr specify "refs/pull/<num>/head"'),
                             required=True)
 
 # End top level parsers
@@ -142,7 +144,7 @@ def tc_mvn_args(original):
     """
     Add some useful maven arguments in TC
     """
-    return "-DfailIfNoTests=false -Dmaven.test.failure.ignore=true --show-version " + original
+    return "-DfailIfNoTests=false -Dmaven.test.failure.ignore=true -Dlicensing.skip --show-version " + original
 
 
 def start_linux(user, password, url, personal, branch, remote,
@@ -154,6 +156,16 @@ def start_linux(user, password, url, personal, branch, remote,
                                 'maven-goals': mvngoals,
                                 'maven-args': mvnargs})
     data = request_xml(_NEO4JLINUX_ID, personal, branch, remote, props)
+    send_request(user, password, url, data)
+
+def start_windows(user, password, url, personal, branch, remote,
+                  mvngoals, mvnargs):
+    """
+    Start a custom windows build
+    """
+    props = dict_as_properties({'maven-goals': mvngoals,
+                                'maven-args': mvnargs})
+    data = request_xml(_WIN_ID, personal, branch, remote, props)
     send_request(user, password, url, data)
 
 def start_ha(user, password, url, personal, branch, remote, arguments):
@@ -185,6 +197,17 @@ class TC(object):
 
         # Invoke the sub command method with rest of the args
         getattr(self, args.command)(cliargs[1:])
+
+    def windows(self, subargs):
+        parser = ArgumentParser(description="Neo4j Windows",
+                                parents=[_PARSER, _NEO4JPARSERBASE])
+
+        args = parser.parse_args(subargs)
+
+        start_windows(args.user, args.password, args.teamcity, args.personal,
+                      args.branch, args.remote,
+                      args.maven_goals,
+                      tc_mvn_args(args.maven_args))
 
     def linux(self, subargs):
         parser = ArgumentParser(description="Neo4j Linux",

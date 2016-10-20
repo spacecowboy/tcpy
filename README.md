@@ -23,7 +23,7 @@ These might become outdated, but should serve as inspiration.
 
 ### Run HA Robustness on a pull request
 
-    tc.py har -u XXX -p YYY --branch pr/1234
+    tc.py har -u XXX -p YYY --branch refs/pull/1234/head
 
 ### Run linux on an IBM JDK
 
@@ -33,10 +33,10 @@ These might become outdated, but should serve as inspiration.
 
     tc.py linux -u XXX -p YYY --branch 3.1 --maven-goals "clean compile"
 
-### Quick feedback, build only what's necessary to run a single specific test
+### Quick feedback Windows build, build only what's necessary to run a single specific test
 
-    tc.py linux -u XXX -p YYY --branch 3.0 --maven-args "-Dtest=MuninnPageCacheWithAdversarialFileDispatcherIT -pl :neo4j-io -am"
+    tc.py windows -u XXX -p YYY --branch 3.0 --maven-args "-Dtest=MuninnPageCacheWithAdversarialFileDispatcherIT -pl :neo4j-io -am"
 
-### Run with defaults, but checkout the branch from your own repo
+### Run with defaults, but checkout the branch from your own repo (not supported on Windows)
 
     tc.py linux -u XXX -p YYY --branch flakytest --remote https://github.com/spacecowboy/neo4j.git
