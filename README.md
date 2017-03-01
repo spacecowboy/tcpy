@@ -29,6 +29,10 @@ These might become outdated, but should serve as inspiration.
 
     tc.py linux -u XXX -p YYY --branch=3.1 --jdk=ibmjdk-8
 
+### Run linux on a Power8 machine (defaults to `ibmjdk-8`)
+
+    tc.py power8 -u XXX -p YYY --branch=3.1
+
 ### Only compile, don't do tests
 
     tc.py linux -u XXX -p YYY --branch=3.1 --maven-goals="clean compile"
