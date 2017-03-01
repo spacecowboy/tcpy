@@ -6,6 +6,7 @@ tc.py <command> [<args>]
 
 Where command is the type of build you with to invoke:
     linux        Neo4j Linux
+    power8       Neo4j Power8
     windows      Neo4j Windows
     har          HA Robustness
 """
@@ -41,6 +42,7 @@ _REQUESTBASE = """
 _REQUESTPROPERTYBASE = '\n    <property name="{name}" value="{value}"/>'
 
 _NEO4JLINUX_ID = "JonasHaRequests_Neo4jCustom"
+_NEO4JPOWER8_ID = "JonasRequests_Neo4jCustomPower8"
 _HAR_ID = "JonasHaRequests_HarBranchArtifacts"
 _WIN_ID = "JonasHaRequests_Neo4jCustomWindows"
 
@@ -158,6 +160,17 @@ def start_linux(user, password, url, personal, branch, remote,
     data = request_xml(_NEO4JLINUX_ID, personal, branch, remote, props)
     send_request(user, password, url, data)
 
+def start_power8(user, password, url, personal, branch, remote,
+                mvngoals, mvnargs, jdk):
+    """
+    Start a custom linux build
+    """
+    props = dict_as_properties({'project-default-jdk': "%{}%".format(jdk),
+                                'maven-goals': mvngoals,
+                                'maven-args': mvnargs})
+    data = request_xml(_NEO4JPOWER8_ID, personal, branch, remote, props)
+    send_request(user, password, url, data)
+
 def start_windows(user, password, url, personal, branch, remote,
                   mvngoals, mvnargs):
     """
@@ -222,6 +235,21 @@ class TC(object):
                     args.maven_goals,
                     tc_mvn_args(args.maven_args),
                     args.jdk)
+
+    def power8(self, subargs):
+        parser = ArgumentParser(description="Neo4j Power8",
+                                parents=[_PARSER, _NEO4JPARSERBASE])
+        parser.add_argument('--jdk', help='JDK to build with',
+                            default='ibmjdk-8', choices=_LINUX_JDKS)
+
+        args = parser.parse_args(subargs)
+
+        start_power8(args.user, args.password, args.teamcity, args.personal,
+                     args.branch, args.remote,
+                     args.maven_goals,
+                     tc_mvn_args(args.maven_args),
+                     args.jdk)
+
 
     def har(self, subargs):
         # Add to top group to keep a single group
